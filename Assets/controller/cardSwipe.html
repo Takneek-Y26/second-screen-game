@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Card Swipe Controller</title>
+
+    <style>
+        body {
+            margin: 0;
+            background: #111;
+            color: #fff;
+            font-family: Arial;
+            overflow: hidden;
+            user-select: none;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+        }
+
+        .card {
+            width: 220px;
+            height: 320px;
+            background: linear-gradient(135deg, #3a3a3a, #1a1a1a);
+            border: 3px solid #fff;
+            border-radius: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 60px;
+            box-shadow: 0 0 20px rgba(255, 255, 255, 0.15);
+            transition: transform 0.15s ease;
+        }
+
+        #status {
+            margin-top: 24px;
+            font-size: 14px;
+            color: #aaa;
+            text-align: center;
+            padding: 0 20px;
+        }
+
+        #startBtn {
+            margin-top: 24px;
+            padding: 14px 28px;
+            font-size: 16px;
+            font-weight: bold;
+            border: none;
+            border-radius: 10px;
+            background: #4caf50;
+            color: #fff;
+            touch-action: none;
+        }
+
+        #log {
+            position: absolute;
+            bottom: 10px;
+            left: 10px;
+            font-size: 11px;
+            color: #555;
+        }
+    </style>
+</head>
+
+<body>
+
+<div class="card" id="card">🂠</div>
+<div id="status">Tap Start, then swipe your phone through the air</div>
+<button id="startBtn">Start</button>
+<div id="log"></div>
+
+<script>
+
+    // =====================================================
+    // PC SERVER
+    // =====================================================
+
+    // Same server used by the joystick controller
+    const SERVER = "https://172.23.146.230:8080";
+
+
+    // =====================================================
+    // SEND INPUT TO PC
+    // =====================================================
+
+    function sendInput(message) {
+        fetch(SERVER, {
+            method: "POST",
+            body: message
+        }).catch(function(error) {
+            console.log("Connection error:", error);
+        });
+    }
+
+
+    // =====================================================
+    // ELEMENTS
+    // =====================================================
+
+    const card = document.getElementById("card");
+    const statusEl = document.getElementById("status");
+    const startBtn = document.getElementById("startBtn");
+    const logEl = document.getElementById("log");
+
+
+    // =====================================================
+    // SWIPE DETECTION TUNING
+    // =====================================================
+
+    const SWIPE_THRESHOLD = 14;   // m/s^2 spike required to count as a swipe
+    const SWIPE_COOLDOWN = 500;   // ms lockout between swipes
+
+    let lastSwipeTime = 0;
+
+
+    function handleMotion(event) {
+
+        // Prefer gravity-free acceleration when the device provides it
+        const acc =
+            (event.acceleration && event.acceleration.x !== null)
+                ? event.acceleration
+                : event.accelerationIncludingGravity;
+
+        if (!acc) return;
+
+        const x = acc.x || 0;
+        const y = acc.y || 0;
+
+        const magX = Math.abs(x);
+        const magY = Math.abs(y);
+
+        const now = Date.now();
+
+        if (now - lastSwipeTime < SWIPE_COOLDOWN) return;
+        if (magX < SWIPE_THRESHOLD && magY < SWIPE_THRESHOLD) return;
+
+        let direction;
+
+        if (magX > magY) {
+            direction = x > 0 ? "RIGHT" : "LEFT";
+        } else {
+            direction = y > 0 ? "UP" : "DOWN";
+        }
+
+        lastSwipeTime = now;
+        triggerSwipe(direction);
+    }
+
+
+    function triggerSwipe(direction) {
+
+        sendInput("SWIPE:" + direction);
+
+        statusEl.textContent = "Swiped " + direction;
+        logEl.textContent = "Last sent: SWIPE:" + direction;
+
+        const offsets = {
+            LEFT:  "translateX(-40px) rotate(-8deg)",
+            RIGHT: "translateX(40px) rotate(8deg)",
+            UP:    "translateY(-40px)",
+            DOWN:  "translateY(40px)"
+        };
+
+        card.style.transform = offsets[direction] || "none";
+
+        setTimeout(function() {
+            card.style.transform = "none";
+        }, 200);
+    }
+
+
+    // =====================================================
+    // START / PERMISSION HANDLING
+    // =====================================================
+
+    startBtn.addEventListener("click", async function() {
+
+        // iOS 13+ requires an explicit permission request triggered
+        // by a user gesture (a button tap, not on page load)
+        if (typeof DeviceMotionEvent !== "undefined" &&
+            typeof DeviceMotionEvent.requestPermission === "function") {
+
+            try {
+                const result = await DeviceMotionEvent.requestPermission();
+
+                if (result !== "granted") {
+                    statusEl.textContent = "Motion permission denied";
+                    return;
+                }
+            } catch (error) {
+                statusEl.textContent = "Permission request failed: " + error;
+                return;
+            }
+        }
+
+        window.addEventListener("devicemotion", handleMotion);
+
+        statusEl.textContent = "Listening — swipe your phone!";
+        startBtn.style.display = "none";
+    });
+
+</script>
+
+</body>
+</html>

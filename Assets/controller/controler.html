@@ -1,0 +1,455 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Game Controller</title>
+
+    <style>
+        body {
+        margin: 0;
+        background: #222;
+        color: white;
+        font-family: Arial;
+        overflow: hidden;
+        user-select: none;
+        }
+
+        .controller {
+            width: 100vw;
+            height: 100vh;
+            position: relative;
+        }
+
+        .joystick {
+    width: 160px;
+    height: 160px;
+    border: 4px solid white;
+    border-radius: 50%;
+    position: absolute;
+    bottom: 30px;
+    touch-action: none;
+}
+
+#leftStick {
+    left: 30px;
+}
+
+#rightStick {
+    right: 30px;
+}
+
+        .knob {
+    width: 60px;
+    height: 60px;
+    background: white;
+    border-radius: 50%;
+    position: absolute;
+
+    left: 50px;
+    top: 50px;
+
+    pointer-events: none;
+}
+
+        .buttons {
+    position: absolute;
+    bottom: 30px;
+    left: 50%;
+    transform: translateX(-50%);
+
+    display: flex;
+    gap: 12px;
+}
+
+        button {
+    width: 110px;
+    height: 55px;
+
+    font-size: 16px;
+    font-weight: bold;
+
+    border: none;
+    border-radius: 12px;
+
+    touch-action: none;
+}
+    </style>
+</head>
+
+<body>
+
+<div class="controller">
+
+    <div class="joystick" id="leftStick">
+        <div class="knob"></div>
+    </div>
+
+    <div class="joystick" id="rightStick">
+        <div class="knob"></div>
+    </div>
+
+    <div class="buttons">
+        <button id="interactButton">INTERACT</button>
+        <button id="sprintButton">SPRINT</button>
+        <button id="crouchButton">CROUCH</button>
+    </div>
+
+</div>
+
+<script>
+
+    // =====================================================
+    // PC SERVER
+    // =====================================================
+
+    // CHANGE ONLY THIS IP ADDRESS IF NEEDED
+    const SERVER = "https://172.23.146.230:8080";
+
+
+    // =====================================================
+    // SEND INPUT TO PC
+    // =====================================================
+
+    function sendInput(message) {
+
+        fetch(SERVER, {
+            method: "POST",
+            body: message
+        }).catch(function(error) {
+            console.log("Connection error:", error);
+        });
+
+    }
+
+
+    // =====================================================
+    // LEFT JOYSTICK
+    // =====================================================
+
+    const leftStick =
+        document.getElementById("leftStick");
+
+    const leftKnob =
+        leftStick.querySelector(".knob");
+
+    let leftActive = false;
+
+
+    leftStick.addEventListener("pointerdown", function(event) {
+
+        leftActive = true;
+
+        leftStick.setPointerCapture(
+            event.pointerId
+        );
+
+        moveJoystick(
+            event,
+            leftStick,
+            leftKnob,
+            "LEFT"
+        );
+
+    });
+
+
+    leftStick.addEventListener("pointermove", function(event) {
+
+        if (!leftActive)
+            return;
+
+        moveJoystick(
+            event,
+            leftStick,
+            leftKnob,
+            "LEFT"
+        );
+
+    });
+
+
+    leftStick.addEventListener("pointerup", function(event) {
+
+        leftActive = false;
+
+        leftKnob.style.transform =
+            "translate(0px, 0px)";
+
+        sendInput("LEFT:0,0");
+
+    });
+
+
+    leftStick.addEventListener("pointercancel", function(event) {
+
+        leftActive = false;
+
+        leftKnob.style.transform =
+            "translate(0px, 0px)";
+
+        sendInput("LEFT:0,0");
+
+    });
+
+
+    // =====================================================
+    // RIGHT JOYSTICK
+    // =====================================================
+
+    const rightStick =
+        document.getElementById("rightStick");
+
+    const rightKnob =
+        rightStick.querySelector(".knob");
+
+    let rightActive = false;
+
+
+    rightStick.addEventListener("pointerdown", function(event) {
+
+        rightActive = true;
+
+        rightStick.setPointerCapture(
+            event.pointerId
+        );
+
+        moveJoystick(
+            event,
+            rightStick,
+            rightKnob,
+            "RIGHT"
+        );
+
+    });
+
+
+    rightStick.addEventListener("pointermove", function(event) {
+
+        if (!rightActive)
+            return;
+
+        moveJoystick(
+            event,
+            rightStick,
+            rightKnob,
+            "RIGHT"
+        );
+
+    });
+
+
+    rightStick.addEventListener("pointerup", function(event) {
+
+        rightActive = false;
+
+        rightKnob.style.transform =
+            "translate(0px, 0px)";
+
+        sendInput("RIGHT:0,0");
+
+    });
+
+
+    rightStick.addEventListener("pointercancel", function(event) {
+
+        rightActive = false;
+
+        rightKnob.style.transform =
+            "translate(0px, 0px)";
+
+        sendInput("RIGHT:0,0");
+
+    });
+
+
+    // =====================================================
+    // JOYSTICK MOVEMENT
+    // =====================================================
+
+    function moveJoystick(
+        event,
+        stick,
+        knob,
+        name
+    ) {
+
+        const rect =
+            stick.getBoundingClientRect();
+
+
+        const centerX =
+            rect.left +
+            rect.width / 2;
+
+
+        const centerY =
+            rect.top +
+            rect.height / 2;
+
+
+        let x =
+            event.clientX -
+            centerX;
+
+
+        let y =
+            event.clientY -
+            centerY;
+
+
+        const maxDistance = 50;
+
+
+        const distance =
+            Math.sqrt(
+                x * x +
+                y * y
+            );
+
+
+        if (distance > maxDistance) {
+
+            x =
+                (x / distance) *
+                maxDistance;
+
+            y =
+                (y / distance) *
+                maxDistance;
+
+        }
+
+
+        // Move visual knob
+
+        knob.style.transform =
+            `translate(${x}px, ${y}px)`;
+
+
+        // Convert to -1 → +1
+
+        const normalizedX =
+            x / maxDistance;
+
+
+        // Screen Y is inverted
+
+        const normalizedY =
+            -y / maxDistance;
+
+
+        // Send joystick data
+
+        sendInput(
+            name +
+            ":" +
+            normalizedX.toFixed(2) +
+            "," +
+            normalizedY.toFixed(2)
+        );
+
+    }
+
+
+    // =====================================================
+    // INTERACT BUTTON
+    // =====================================================
+
+    const interactButton =
+        document.getElementById(
+            "interactButton"
+        );
+
+
+    interactButton.addEventListener(
+        "pointerdown",
+        function() {
+
+            sendInput("INTERACT");
+
+        }
+    );
+
+
+    // =====================================================
+    // SPRINT BUTTON
+    // =====================================================
+
+    const sprintButton =
+        document.getElementById(
+            "sprintButton"
+        );
+
+
+    sprintButton.addEventListener(
+        "pointerdown",
+        function() {
+
+            sendInput("SPRINT");
+
+        }
+    );
+
+
+    sprintButton.addEventListener(
+        "pointerup",
+        function() {
+
+            sendInput("SPRINT_UP");
+
+        }
+    );
+
+
+    sprintButton.addEventListener(
+        "pointercancel",
+        function() {
+
+            sendInput("SPRINT_UP");
+
+        }
+    );
+
+
+    // =====================================================
+    // CROUCH BUTTON
+    // =====================================================
+
+    const crouchButton =
+        document.getElementById(
+            "crouchButton"
+        );
+
+
+    crouchButton.addEventListener(
+        "pointerdown",
+        function() {
+
+            sendInput("CROUCH");
+
+        }
+    );
+
+
+    crouchButton.addEventListener(
+        "pointerup",
+        function() {
+
+            sendInput("CROUCH_UP");
+
+        }
+    );
+
+
+    crouchButton.addEventListener(
+        "pointercancel",
+        function() {
+
+            sendInput("CROUCH_UP");
+
+        }
+    );
+
+</script>
+
+</body>
+</html>

@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Door Shake Controller</title>
+
+    <style>
+        body {
+            margin: 0;
+            background: #111;
+            color: #fff;
+            font-family: Arial;
+            overflow: hidden;
+            user-select: none;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+        }
+
+        .door {
+            width: 160px;
+            height: 320px;
+            background: linear-gradient(135deg, #6b4a2b, #3a2814);
+            border: 3px solid #d8b98a;
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 60px;
+            box-shadow: 0 0 20px rgba(255, 255, 255, 0.1);
+            transition: transform 0.25s ease;
+        }
+
+        #status {
+            margin-top: 24px;
+            font-size: 14px;
+            color: #aaa;
+            text-align: center;
+            padding: 0 20px;
+        }
+
+        #startBtn {
+            margin-top: 24px;
+            padding: 14px 28px;
+            font-size: 16px;
+            font-weight: bold;
+            border: none;
+            border-radius: 10px;
+            background: #4caf50;
+            color: #fff;
+            touch-action: none;
+        }
+
+        #log {
+            position: absolute;
+            bottom: 10px;
+            left: 10px;
+            font-size: 11px;
+            color: #555;
+        }
+    </style>
+</head>
+
+<body>
+
+<div class="door" id="door">🚪</div>
+<div id="status">Tap Start, then shake your phone to open/close the door</div>
+<button id="startBtn">Start</button>
+<div id="log"></div>
+
+<script>
+
+    // =====================================================
+    // PC SERVER
+    // =====================================================
+
+    // CHANGE THIS to your PC's local IP address (same one used
+    // by controler.html). Find it with `ipconfig` (Windows) or
+    // `ifconfig` / `ip addr` (Mac/Linux).
+    const SERVER = "https://172.23.146.230:8080";
+
+
+    // =====================================================
+    // SEND INPUT TO PC
+    // =====================================================
+
+    function sendInput(message) {
+        fetch(SERVER, {
+            method: "POST",
+            body: message
+        }).catch(function(error) {
+            console.log("Connection error:", error);
+        });
+    }
+
+
+    // =====================================================
+    // ELEMENTS
+    // =====================================================
+
+    const doorEl = document.getElementById("door");
+    const statusEl = document.getElementById("status");
+    const startBtn = document.getElementById("startBtn");
+    const logEl = document.getElementById("log");
+
+
+    // =====================================================
+    // SHAKE DETECTION TUNING
+    // =====================================================
+
+    // Combined acceleration magnitude (m/s^2) required to count as a shake.
+    // Raise this if it's triggering too easily, lower it if it's not
+    // sensitive enough.
+    const SHAKE_THRESHOLD = 18;
+
+    // Lockout between shakes so one shake doesn't fire multiple events.
+    const SHAKE_COOLDOWN = 600;
+
+    let lastShakeTime = 0;
+
+
+    function handleMotion(event) {
+
+        // Prefer gravity-free acceleration when the device provides it
+        const acc =
+            (event.acceleration && event.acceleration.x !== null)
+                ? event.acceleration
+                : event.accelerationIncludingGravity;
+
+        if (!acc) return;
+
+        const x = acc.x || 0;
+        const y = acc.y || 0;
+        const z = acc.z || 0;
+
+        // Shake = total movement in ANY direction, not a specific swipe
+        // direction, so we look at the combined magnitude of all 3 axes.
+        const magnitude = Math.sqrt(x * x + y * y + z * z);
+
+        const now = Date.now();
+
+        if (now - lastShakeTime < SHAKE_COOLDOWN) return;
+        if (magnitude < SHAKE_THRESHOLD) return;
+
+        lastShakeTime = now;
+        triggerShake(magnitude);
+    }
+
+
+    function triggerShake(magnitude) {
+
+        // Reuses the existing "SWIPE:<value>" protocol that PhoneReceiver.cs
+        // already parses, so no changes are needed on the receiving side.
+        sendInput("SWIPE:DOOR");
+
+        statusEl.textContent = "Shake detected! (" + magnitude.toFixed(1) + " m/s²)";
+        logEl.textContent = "Last sent: SWIPE:DOOR";
+
+        doorEl.style.transform = "rotateY(35deg)";
+
+        setTimeout(function() {
+            doorEl.style.transform = "none";
+        }, 250);
+    }
+
+
+    // =====================================================
+    // START / PERMISSION HANDLING
+    // =====================================================
+
+    startBtn.addEventListener("click", async function() {
+
+        // iOS 13+ requires an explicit permission request triggered
+        // by a user gesture (a button tap, not on page load)
+        if (typeof DeviceMotionEvent !== "undefined" &&
+            typeof DeviceMotionEvent.requestPermission === "function") {
+
+            try {
+                const result = await DeviceMotionEvent.requestPermission();
+
+                if (result !== "granted") {
+                    statusEl.textContent = "Motion permission denied";
+                    return;
+                }
+            } catch (error) {
+                statusEl.textContent = "Permission request failed: " + error;
+                return;
+            }
+        }
+
+        window.addEventListener("devicemotion", handleMotion);
+
+        statusEl.textContent = "Listening — shake your phone!";
+        startBtn.style.display = "none";
+    });
+
+</script>
+
+</body>
+</html>
