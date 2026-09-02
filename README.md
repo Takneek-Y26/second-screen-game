@@ -30,12 +30,12 @@
 1. Clone the repository using `git clone`.
 2. Build executable or run via Unity.
 3. Open Command Prompt, and use the `ipconfig` command to find the IPv4 Address. 
-4. Update the IPv4 Address in the line `const SERVER = "http://<YOUR_IPv4_ADDRESS>:8080"` in controler.html
+4. Update the IPv4 Address in the line `const SERVER = "http://<YOUR_IPv4_ADDRESS>:7777"` in controler.html
 5. Open Command Prompt in the folder containing controler.html, and use `python server.py` to run the Python server.
 6. Launch the main game executable.
 
 ### Step 2: Smartphone Application
-1. Go to `http://<YOUR_IPv4_ADDRESS>:8080/controler.html/`. 
+1. Go to `http://<YOUR_IPv4_ADDRESS>:7777/controler.html/`. 
 ---
 
 ## 📡 4. Communication Architecture
@@ -49,7 +49,7 @@
 **UDP (Server to Game)**: Handles real-time action. Delivers high-frequency state updates with minimal latency by eliminating TCP's retransmission delays and head-of-line blocking
 
 ### Connection Flow
-1. Primary game hosts a local server on Port `8080`.
+1. Primary game hosts a local server on Port `7777`.
 2. Smartphone connects via HTTP
 3. Handshake protocol exchanges client ID and sensor capabilities.
 
@@ -62,7 +62,7 @@
 ### Endpoint Details
 * **Protocol:** UDP
 * **Target IP:** `172.23.146.230`
-* **Target Port:** `8080`
+* **Target Port:** `7777`
 * **Mode Switch:** Launch with `--benchmark` flag or select "Benchmark Mode" on the main launcher UI.
 
 ### Benchmark Message Specs
